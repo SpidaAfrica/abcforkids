@@ -44,14 +44,19 @@ jobs:
             --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
             --generateAppBundle
 
+      # Bubblewrap usually outputs files under ./android/app/build/outputs/
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: signed-apk
-          path: ./app-release-signed.apk
+          path: |
+            ./app-release-signed.apk
+            ./android/app/build/outputs/**/*.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: signed-aab
-          path: ./app-release-bundle.aab
+          path: |
+            ./app-release-bundle.aab
+            ./android/app/build/outputs/**/*.aab
