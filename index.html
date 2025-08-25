@@ -1,0 +1,24 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ABC for Kids</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="icon" href="./icon.png">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+  <style>
+    body { font-family: Arial; text-align: center; background: #fdf6e3; }
+    .letter { font-size: 4rem; margin: 1rem; padding: 1rem 2rem; background: #8ecae6; color: #fff; border: none; border-radius: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Tap a Letter</h1>
+  <div id="letters"></div>
+  <script src="script.js"></script>
+</body>
+</html>
