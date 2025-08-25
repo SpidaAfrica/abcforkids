@@ -36,7 +36,7 @@ jobs:
       - name: Init Bubblewrap Config (Non-Interactive)
         run: |
           bubblewrap init --nonInteractive \
-            --manifest https://yourdomain.com/manifest.json \
+            --manifest https://https://abcforkids.vercel.app/manifest.json \
             --jdkPath $JAVA_HOME \
             --directory .
         env:
@@ -44,7 +44,7 @@ jobs:
 
       - name: Build Signed APK & AAB
         run: |
-          bubblewrap build \
+          yes "n" | bubblewrap build \
             --jdkPath $JAVA_HOME \
             --skipPwaValidation \
             --signingKeyPath my-release-key.keystore \
