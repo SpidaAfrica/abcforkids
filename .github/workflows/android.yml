@@ -1,4 +1,4 @@
-name: Build Signed Android App (Alternative)
+name: Build Signed Android App
 on:
   push:
     branches: [ "main" ]
@@ -26,77 +26,92 @@ jobs:
         uses: android-actions/setup-android@v3
         
       - name: Install Bubblewrap
-        run: |
-          npm install -g @bubblewrap/cli
-          
-      - name: Force configure Bubblewrap with environment variables
-        run: |
-          export BUBBLEWRAP_JAVA_PATH="$JAVA_HOME/bin/java"
-          export BUBBLEWRAP_ANDROID_SDK="$ANDROID_SDK_ROOT"
-          echo "BUBBLEWRAP_JAVA_PATH=$JAVA_HOME/bin/java" >> $GITHUB_ENV
-          echo "BUBBLEWRAP_ANDROID_SDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          
-          # Create bubblewrap config directory and file
-          mkdir -p ~/.bubblewrap
-          echo '{"jdkPath":"'$JAVA_HOME'","androidSdkPath":"'$ANDROID_SDK_ROOT'"}' > ~/.bubblewrap/config.json
-          
-          echo "Environment check:"
-          echo "JAVA_HOME: $JAVA_HOME"
-          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-          java -version
-          
-      - name: Check for twa-manifest.json
+        run: npm install -g @bubblewrap/cli
+        
+      - name: Verify twa-manifest.json exists
         run: |
           if [ ! -f "twa-manifest.json" ]; then
             echo "Error: twa-manifest.json not found!"
-            echo "Please create a twa-manifest.json file in your repository root."
+            echo "Please create this file in your repository root."
             exit 1
           fi
           echo "Found twa-manifest.json:"
           cat twa-manifest.json
           
+      - name: Fix twa-manifest.json signing key path
+        run: |
+          node -e "
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('twa-manifest.json', 'utf8'));
+          
+          if (!manifest.signingKey) {
+            manifest.signingKey = {};
+          }
+          
+          manifest.signingKey.path = './my-release-key.keystore';
+          
+          fs.writeFileSync('twa-manifest.json', JSON.stringify(manifest, null, 2));
+          console.log('Updated signing key path in twa-manifest.json');
+          "
+          
       - name: Decode Keystore
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > my-release-key.keystore
+          chmod 644 my-release-key.keystore
           ls -la my-release-key.keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           
-      - name: Try Bubblewrap build with timeout and non-interactive
-        timeout-minutes: 10
+      - name: Install expect for interactive prompts
+        run: sudo apt-get update && sudo apt-get install -y expect
+        
+      - name: Build Signed APK & AAB
         run: |
-          # Set all required environment variables
-          export JAVA_HOME=$JAVA_HOME
-          export ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          expect -c "
+          set timeout 600
+          spawn bubblewrap build --skipUpdateChecks --skipPwaValidation --signingKeyPath my-release-key.keystore --signingKeyAlias \"${{ secrets.KEY_ALIAS }}\" --signingKeyPassword \"${{ secrets.KEY_PASSWORD }}\" --signingStorePassword \"${{ secrets.KEYSTORE_PASSWORD }}\" --generateAppBundle
           
-          # Try to run build command with timeout to avoid hanging
-          timeout 600 bubblewrap build \
-            --skipUpdateChecks \
-            --skipPwaValidation \
-            --signingKeyPath my-release-key.keystore \
-            --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
-            --signingKeyPassword "${{ secrets.KEY_PASSWORD }}" \
-            --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
-            --generateAppBundle || {
-              echo "Bubblewrap build failed or timed out"
-              echo "Trying alternative approach..."
-              echo "n" | timeout 300 bubblewrap build \
-                --skipUpdateChecks \
-                --skipPwaValidation \
-                --signingKeyPath my-release-key.keystore \
-                --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
-                --signingKeyPassword "${{ secrets.KEY_PASSWORD }}" \
-                --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
-                --generateAppBundle
+          expect {
+            \"Do you want Bubblewrap to install the JDK\" {
+              send \"n\r\"
+              exp_continue
             }
-            
-      - name: List generated files
+            \"would you like to regenerate your project\" {
+              send \"n\r\"
+              exp_continue
+            }
+            \"then you may enter\" {
+              send \"n\r\"
+              exp_continue
+            }
+            \"(Y/n)\" {
+              send \"n\r\"
+              exp_continue
+            }
+            eof {
+              exit 0
+            }
+            timeout {
+              puts \"Build timed out\"
+              exit 1
+            }
+          }
+          "
+          
+      - name: Find and list generated files
         run: |
-          echo "Files in current directory:"
+          echo "=== Current directory contents ==="
           ls -la
-          echo "Looking for APK and AAB files:"
-          find . -name "*.apk" -o -name "*.aab" | head -10
+          echo ""
+          echo "=== Searching for APK files ==="
+          find . -name "*.apk" -type f | head -10
+          echo ""
+          echo "=== Searching for AAB files ==="
+          find . -name "*.aab" -type f | head -10
+          echo ""
+          echo "=== Checking common output directories ==="
+          ls -la app-* 2>/dev/null || echo "No app-* files found"
+          ls -la android/ 2>/dev/null || echo "No android directory found"
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -109,7 +124,7 @@ jobs:
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: signed-aab
+          name: signed-aab  
           path: |
             **/*.aab
         if: success()
