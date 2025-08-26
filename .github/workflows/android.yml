@@ -13,13 +13,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - run: echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,8 +29,7 @@ jobs:
 
       - name: Build Signed APK & AAB
         run: |
-          yes "n" | bubblewrap build \
-            --jdkPath "$JAVA_HOME" \
+          yes "Y" | bubblewrap build \
             --skipPwaValidation \
             --signingKeyPath my-release-key.keystore \
             --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
@@ -45,7 +37,7 @@ jobs:
             --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
             --generateAppBundle
 
-      # Upload artifacts (Bubblewrap outputs them under ./android/app/build/outputs/)
+      # Upload artifacts
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
