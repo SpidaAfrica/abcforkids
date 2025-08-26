@@ -1,0 +1,26 @@
+{
+  "packageId": "com.abcforkids.app",
+  "host": "abcforkids.vercel.app",
+  "name": "ABC for Kids",
+  "launcherName": "ABC",
+  "display": "standalone",
+  "themeColor": "#8ecae6",
+  "navigationColor": "#8ecae6",
+  "navigationColorDark": "#8ecae6",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": false,
+  "startUrl": ".",
+  "iconUrl": "https://abcforkids.vercel.app/icon-512.png",
+  "maskableIconUrl": "https://abcforkids.vercel.app/icon-192.png",
+  "webManifestUrl": "https://abcforkids.vercel.app/assets/manifest-CqCGFERH.json",
+  "fallbackType": "customtabs",
+  "generatorApp": "bubblewrap-cli",
+  "orientation": "portrait",
+  "fingerprints": [],
+  "features": {
+    "locationDelegation": false,
+    "playBilling": false,
+    "trustAnchors": [],
+    "webShareTarget": false
+  }
+}
