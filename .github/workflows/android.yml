@@ -65,57 +65,37 @@ jobs:
       - name: Install expect for interactive prompts
         run: sudo apt-get update && sudo apt-get install -y expect
         
-      - name: Build Signed APK & AAB
+      - name: Pre-configure Bubblewrap to avoid interactive setup
         run: |
-          # Set environment variables that expect can access
-          export JAVA_PATH="$JAVA_HOME"
-          export ANDROID_SDK_PATH="$ANDROID_SDK_ROOT"
+          # Create Bubblewrap config directory
+          mkdir -p ~/.bubblewrap
           
-          expect -c "
-          set timeout 600
-          set java_home [lindex \$argv 0]
-          set android_sdk [lindex \$argv 1]
-          
-          spawn bubblewrap build --skipUpdateChecks --skipPwaValidation --signingKeyPath my-release-key.keystore --signingKeyAlias \"${{ secrets.KEY_ALIAS }}\" --signingKeyPassword \"${{ secrets.KEY_PASSWORD }}\" --signingStorePassword \"${{ secrets.KEYSTORE_PASSWORD }}\" --generateAppBundle
-          
-          expect {
-            \"Do you want Bubblewrap to install the JDK*\" {
-              send \"n\r\"
-              exp_continue
-            }
-            \"Path to your existing JDK 17:\" {
-              send \"\$java_home\r\"
-              exp_continue
-            }
-            \"Path to Android SDK:\" {
-              send \"\$android_sdk\r\"
-              exp_continue
-            }
-            \"would you like to regenerate your project*\" {
-              send \"n\r\"
-              exp_continue
-            }
-            \"then you may enter*\" {
-              send \"n\r\"
-              exp_continue
-            }
-            \"*(Y/n)*\" {
-              send \"n\r\"
-              exp_continue
-            }
-            \"*(y/N)*\" {
-              send \"n\r\"
-              exp_continue
-            }
-            eof {
-              exit 0
-            }
-            timeout {
-              puts \"Build timed out\"
-              exit 1
-            }
+          # Create config file to skip interactive setup
+          cat > ~/.bubblewrap/config.json << EOF
+          {
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "$ANDROID_SDK_ROOT"
           }
-          " "$JAVA_HOME" "$ANDROID_SDK_ROOT"
+          EOF
+          
+          echo "Created Bubblewrap config:"
+          cat ~/.bubblewrap/config.json
+          
+          echo "Environment variables:"
+          echo "JAVA_HOME: $JAVA_HOME"
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          
+      - name: Build Signed APK & AAB (Simple approach)
+        run: |
+          # Try direct build first (config should prevent interactive prompts)
+          bubblewrap build \
+            --skipUpdateChecks \
+            --skipPwaValidation \
+            --signingKeyPath my-release-key.keystore \
+            --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
+            --signingKeyPassword "${{ secrets.KEY_PASSWORD }}" \
+            --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
+            --generateAppBundle
           
       - name: Find and list generated files
         run: |
