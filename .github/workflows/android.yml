@@ -29,7 +29,8 @@ jobs:
 
       - name: Build Signed APK & AAB
         run: |
-          yes "Y" | bubblewrap build \
+          bubblewrap build \
+            --skipUpdateChecks \
             --skipPwaValidation \
             --signingKeyPath my-release-key.keystore \
             --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
