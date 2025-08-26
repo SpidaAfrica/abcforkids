@@ -1,4 +1,4 @@
-name: Build Signed Android App
+name: Build Signed Android App (Alternative)
 on:
   push:
     branches: [ "main" ]
@@ -22,28 +22,29 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-        
       - name: Setup Android SDK
-        run: |
-          # Install Android SDK
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          unzip -q commandlinetools-linux-8512546_latest.zip -d $HOME/android-sdk/cmdline-tools
-          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-          
-          # Set environment variables
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          
-      - name: Install Android Build Tools
-        run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platforms;android-33"
+        uses: android-actions/setup-android@v3
         
+      - name: Install Bubblewrap
+        run: |
+          npm install -g @bubblewrap/cli
+          
+      - name: Force configure Bubblewrap with environment variables
+        run: |
+          export BUBBLEWRAP_JAVA_PATH="$JAVA_HOME/bin/java"
+          export BUBBLEWRAP_ANDROID_SDK="$ANDROID_SDK_ROOT"
+          echo "BUBBLEWRAP_JAVA_PATH=$JAVA_HOME/bin/java" >> $GITHUB_ENV
+          echo "BUBBLEWRAP_ANDROID_SDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          
+          # Create bubblewrap config directory and file
+          mkdir -p ~/.bubblewrap
+          echo '{"jdkPath":"'$JAVA_HOME'","androidSdkPath":"'$ANDROID_SDK_ROOT'"}' > ~/.bubblewrap/config.json
+          
+          echo "Environment check:"
+          echo "JAVA_HOME: $JAVA_HOME"
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          java -version
+          
       - name: Check for twa-manifest.json
         run: |
           if [ ! -f "twa-manifest.json" ]; then
@@ -51,6 +52,7 @@ jobs:
             echo "Please create a twa-manifest.json file in your repository root."
             exit 1
           fi
+          echo "Found twa-manifest.json:"
           cat twa-manifest.json
           
       - name: Decode Keystore
@@ -60,28 +62,41 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           
-      - name: Verify keystore
+      - name: Try Bubblewrap build with timeout and non-interactive
+        timeout-minutes: 10
         run: |
-          keytool -list -keystore my-release-key.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -v
-        continue-on-error: true
-        
-      - name: Build Signed APK & AAB
-        run: |
-          bubblewrap build \
+          # Set all required environment variables
+          export JAVA_HOME=$JAVA_HOME
+          export ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          
+          # Try to run build command with timeout to avoid hanging
+          timeout 600 bubblewrap build \
             --skipUpdateChecks \
             --skipPwaValidation \
             --signingKeyPath my-release-key.keystore \
             --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
             --signingKeyPassword "${{ secrets.KEY_PASSWORD }}" \
             --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
-            --generateAppBundle
+            --generateAppBundle || {
+              echo "Bubblewrap build failed or timed out"
+              echo "Trying alternative approach..."
+              echo "n" | timeout 300 bubblewrap build \
+                --skipUpdateChecks \
+                --skipPwaValidation \
+                --signingKeyPath my-release-key.keystore \
+                --signingKeyAlias "${{ secrets.KEY_ALIAS }}" \
+                --signingKeyPassword "${{ secrets.KEY_PASSWORD }}" \
+                --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
+                --generateAppBundle
+            }
             
       - name: List generated files
         run: |
           echo "Files in current directory:"
           ls -la
           echo "Looking for APK and AAB files:"
-          find . -name "*.apk" -o -name "*.aab"
+          find . -name "*.apk" -o -name "*.aab" | head -10
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -89,7 +104,6 @@ jobs:
           name: signed-apk
           path: |
             **/*.apk
-            app-release-signed.apk
         if: success()
         
       - name: Upload AAB
@@ -98,5 +112,4 @@ jobs:
           name: signed-aab
           path: |
             **/*.aab
-            app-release-bundle.aab
         if: success()
