@@ -1,18 +1,20 @@
 {
   "name": "ABC for Kids",
-  "short_name": "ABC",
-  "start_url": ".",
+  "short_name": "ABC Kids",
+  "description": "Learn ABCs with fun activities for kids.",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#8ecae6",
+  "theme_color": "#4CAF50",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "public/icon-192.png",
+      "src": "/assets/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "public/icon-512.png",
+      "src": "/assets/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
