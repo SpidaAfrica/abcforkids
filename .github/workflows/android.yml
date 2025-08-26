@@ -18,6 +18,12 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
@@ -38,19 +44,14 @@ jobs:
             --signingStorePassword "${{ secrets.KEYSTORE_PASSWORD }}" \
             --generateAppBundle
 
-      # Upload artifacts
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: signed-apk
-          path: |
-            ./app-release-signed.apk
-            ./android/app/build/outputs/**/*.apk
+          path: output/app-release-signed.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: signed-aab
-          path: |
-            ./app-release-bundle.aab
-            ./android/app/build/outputs/**/*.aab
+          path: output/app-release-bundle.aab
